@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+	<title>App 1</title>
+<style>
+    @font-face {
+font-family: 'uni0553-webfont';
+src: url('fonts/uni0553-webfont.eot');
+src: url('fonts/uni0553-webfont.eot?#iefix') format('embedded-opentype'),
+url('fonts/uni0553-webfont.woff') format('woff'),
+url('fonts/uni0553-webfont.ttf') format('truetype');
+font-weight: normal;
+font-style: normal;
+font-smooth: never;}
+body {background: #000; margin: 0; color: #fff;
+font-family: 'uni0553-webfont';
+}
+* {
+    user-select: none;
+}
+</style>
+</head>
+<body>
+  <canvas id="scorecnv" style=" display: none; position: absolute;" width="256" height="256"></canvas>
+	
+	<!-- <script type="text/javascript" src="cordova.js"></script> -->
+	<script src="js/three.min.js"></script>
+	<script src="js/p2.min.js"></script>
+
+
+<script>
+// var scorecnv = document.createElement('canvas');
+var scorecnv = document.getElementById('scorecnv'),
+ptx = scorecnv.getContext('2d');
+
+// cursor pointer
+let pointers = [];
+pointers.push(new pointerPrototype());
+platforms=[];
+goalswitch = false;
+goals = 0;
+oldgoalval = 0;
+
+function pointerPrototype () {
+    this.x = 0;
+    this.y = 0;
+}
+
+
+
+window.addEventListener('mousedown', e => {
+doubletap();
+});
+
+
+window.addEventListener('mousemove', e => {
+  mouse.x = ( e.clientX / window.innerWidth ) * 2 - 1;
+  mouse.y = - ( e.clientY / window.innerHeight ) * 2 + 1;
+//
+  raycaster.setFromCamera( mouse, camera );
+  let intersects = raycaster.intersectObject( plane );
+  if (intersects.length > 0) { movehero(intersects[ 0 ].point.x, intersects[ 0 ].point.y); }
+});
+
+
+
+window.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const touches = e.targetTouches;
+    for (let i = 0; i < touches.length; i++) {
+        let pointer = pointers[i];
+//
+        mouse.x = ( e.touches[0].pageX / window.innerWidth ) * 2 - 1;
+        mouse.y = - ( e.touches[0].pageY / window.innerHeight ) * 2 + 1;
+//
+        raycaster.setFromCamera( mouse, camera );
+        let intersects = raycaster.intersectObject( plane );
+          if (intersects.length > 0) { movehero(intersects[ 0 ].point.x, intersects[ 0 ].point.y); }
+            }
+}, false);
+
+// handle window resize
+window.addEventListener('resize', function(){
+    renderer.setSize( window.innerWidth, window.innerHeight );
+    camera.aspect   = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+}, false)
+
+
+// move cursor object
+function movehero(x, y) {
+    cursor.position.x = x;
+    cursor.position.y = y;
+}
+
+// THREEJS
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+renderer = new THREE.WebGLRenderer();
+renderer.setSize( window.innerWidth, window.innerHeight );
+document.body.appendChild( renderer.domElement );
+camera.position.z = 10;
+// controls
+// var controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+//raycaster
+var raycaster = new THREE.Raycaster();
+var mouse = new THREE.Vector2();
+
+// groups
+selection = new THREE.Group();
+scene.add( selection );
+
+cursor = new THREE.Group();
+scene.add( cursor );
+
+// hover plane
+var plgeometry = new THREE.PlaneBufferGeometry( 12, 12, 1);
+var material = new THREE.MeshBasicMaterial( { 
+opacity:0, transparent:true } );
+plane = new THREE.Mesh( plgeometry, material );
+scene.add( plane );
+// plane.visible = false;
+
+
+// BG plane
+var pitchtexture = new THREE.TextureLoader().load( 'img/pitch5.png');
+pitchtexture.magFilter = THREE.NearestFilter;
+pitchtexture.minFilteer = THREE.NearestFilter;
+var pitchmaterial = new THREE.MeshBasicMaterial( { 
+  // color: 0x333333 
+  map: pitchtexture,
+  opacity:1, transparent:true
+} );
+bgplane = new THREE.Mesh( plgeometry, pitchmaterial );
+bgplane.position.z = -0.2;
+scene.add( bgplane );
+
+// full screen bg
+// var fullscrGeom = new THREE.BoxBufferGeometry(1, 1, 1);
+// var fullscrMat = new THREE.MeshBasicMaterial({ 
+//   color:'red', opacity:1, transparent:true, side:THREE.DoubleSide 
+// });
+// var plane = new THREE.Mesh(fullscrGeom, fullscrMat);
+// var depth = -0.8;
+// plane.position.set(0, 0, depth);
+// plane.scale.set(visibleWidthAtZDepth(depth, camera), visibleHeightAtZDepth(depth, camera), 1);
+// scene.add(plane);
+
+// cursor disc
+var curve = new THREE.EllipseCurve(
+  0,  0,
+  0.5, 0.5,
+  0,  2 * Math.PI,  
+  false,
+  0
+);
+
+var points = curve.getPoints( 60 );
+var dgeometry = new THREE.BufferGeometry().setFromPoints( points );
+var dmaterial = new THREE.LineBasicMaterial( { color : 0x666666
+ } );
+
+var seldisc = new THREE.Line( dgeometry, dmaterial );
+cursor.add(seldisc);
+
+
+// scoreboard screen
+var scgeometry = new THREE.PlaneBufferGeometry( 7.5, 7.5, 1 );
+scoretexture = new THREE.Texture(scorecnv);
+scoretexture.magFilter = THREE.NearestFilter;
+var scorematerial = new THREE.MeshBasicMaterial({ 
+  map: scoretexture,
+    transparent: true
+  // ,color:'red'
+  // ,wireframe:true
+});
+var score = new THREE.Mesh( scgeometry, scorematerial );
+// score.position.x = 1;
+score.position.z = 0.01;
+score.position.y = -4;
+score.renderOrder = 1;
+scene.add( score );
+
+// goal shape
+var material = new THREE.LineBasicMaterial( { color: 0xffff00 } );
+var geometry = new THREE.Geometry();
+geometry.vertices.push(new THREE.Vector3( -12, 0, 0) );
+geometry.vertices.push(new THREE.Vector3( -12, 8, 0) );
+geometry.vertices.push(new THREE.Vector3( 12, 8, 0) );
+geometry.vertices.push(new THREE.Vector3( 12, 0, 0) );
+var line = new THREE.Line( geometry, material );
+line.scale.set(0.07,0.07,0.07)
+line.position.y = -6;
+line.position.z = -0.25;
+line.rotation.x = Math.PI/2;
+scene.add( line );
+
+
+
+// initiate P2.js
+function initPhysics() {
+// // hero group
+// hero = new THREE.Group();
+// scene.add( hero );
+
+// hero plane object
+let bgeometry = new THREE.PlaneBufferGeometry( 0.5, 0.5, 1 );
+let mmaterial = new THREE.MeshBasicMaterial( { 
+color:0xff0000
+ } );
+
+heroobject = new THREE.Mesh( bgeometry, mmaterial );
+heroobject.name = 'heroobject';
+scene.add( heroobject );
+
+
+// Create cursor
+cursorShape = new p2.Circle(0.5,0.5);
+var cursorBody = new p2.Body({
+    position:[0,0], mass: 20
+});
+cursorBody.damping = 0;
+cursorBody.data = heroobject;
+cursorBody.name = "crsr";
+cursorBody.addShape(cursorShape);
+world.addBody(cursorBody);
+add3DBall();
+}
+
+// add ball function
+function add3DBall(){
+  // groups
+xball = new THREE.Group();
+scene.add( xball );
+// xball.add(camera)
+
+
+ // Add 3D ball 
+var balltexture = new THREE.TextureLoader().load( 'img/football-diffuse-512.png');
+balltexture.magFilter = THREE.NearestFilter;
+balltexture.minFilteer = THREE.NearestFilter;
+ballmaterial = new THREE.MeshBasicMaterial({
+map: balltexture
+});    
+geometry = new THREE.SphereBufferGeometry(0.5, 32, 32);
+x3dball = new THREE.Mesh(geometry, ballmaterial);
+x3dball.renderOrder = 1;
+xball.add(x3dball);
+// xball.add(camera);
+
+
+// outline
+// olballmaterial = new THREE.MeshBasicMaterial({
+// color : 'white',
+// side:THREE.BackSide
+// });   
+// x3dballine = new THREE.Mesh(geometry, olballmaterial);
+// x3dballine.scale.set(1.02,1.02,1.02);
+// x3dballine.renderOrder = 1;
+// xball.add(x3dballine);
+
+
+// Add P2 BALL
+var ballShape = new p2.Circle(0.5,0.5);
+var ballBody = new p2.Body({ mass:0.2, position:[0,0]
+,angularVelocity:2
+});
+ballBody.allowSleep = true;
+ballBody.sleepSpeedLimit = 0.01; 
+ballBody.sleepTimeLimit =  0.01;
+ballBody.data = xball;
+ballBody.name="football";
+ballBody.addShape(ballShape);
+world.addBody(ballBody);
+// ballBody.damping = 0; 
+}
+
+
+
+// add BOUNDS
+function addbounds(){
+// planes
+    xmin = -4.4,
+    xmax = 4.4,
+    ymax = 6;
+
+// goal side walls
+var bbLeft = -3.5;
+var bbRight = 3.5;
+var bbBottom = -6.5;
+var bbp1 = 0.5;
+var bbpw = 4.6;
+
+// 3D wall
+        bb3d = new THREE.Mesh(new THREE.PlaneBufferGeometry(bbpw, bbp1, 1), new THREE.MeshBasicMaterial({
+            // map: idletexture
+            color: 0x333333,
+            side:THREE.DoubleSide
+        }));
+        bb3d.renderOrder = 1;
+        bb3d.position.x = bbLeft;
+        bb3d.position.y = bbBottom;
+        // scene.add(bb3d);  
+        // behind goal wall L
+        baseShapeL = new p2.Rectangle(bbpw,bbp1);
+        var baseBodyL = new p2.Body({
+            position:[bbLeft,bbBottom], mass: 0 });
+        baseBodyL.name = "groundL";
+        baseBodyL.addShape(baseShapeL);
+        world.addBody(baseBodyL);
+// 3D wall
+        bc3d = new THREE.Mesh(new THREE.PlaneBufferGeometry(bbpw, bbp1, 1), new THREE.MeshBasicMaterial({
+            // map: idletexture
+            color: 0x333333,
+            side:THREE.DoubleSide
+        }));
+        bc3d.renderOrder = 1;
+        bc3d.position.x = bbRight;
+        bc3d.position.y = bbBottom;
+        // scene.add(bc3d);  
+        // behind goal wall R 
+        var baseBodyR = new p2.Body({
+            position:[bbRight,bbBottom], mass: 0 });
+        baseBodyR.name = "groundR";
+        baseBodyR.addShape(baseShapeL);
+        world.addBody(baseBodyR);
+
+    // top plane
+    var topplane = new p2.Body({
+        angle: -Math.PI,
+        position : [0,ymax],
+    });
+    topplane.addShape(new p2.Plane());
+    world.addBody(topplane);
+
+    // Left plane
+    var planeLeft = new p2.Body({
+        angle: -Math.PI/2,
+        position: [xmin, 0]
+    });
+    planeLeft.addShape(new p2.Plane());
+    world.addBody(planeLeft);
+
+    // Right plane
+    var planeRight = new p2.Body({
+        angle: Math.PI/2,
+        position: [xmax, 0]
+    });
+    planeRight.addShape(new p2.Plane());
+    world.addBody(planeRight);
+    
+// add goallie
+    npc3D(1);
+
+}
+
+
+// make NPC [goalie]
+function npc3D(argument) {
+for ( var i = 0; i < argument; i ++ ) {
+       // platform 3d
+        var xp1 = 0;
+        var yp1 = -5.7;
+        var xpw = 0.3;
+        var ypw = 0.3;
+        npc = new THREE.Mesh(new THREE.PlaneBufferGeometry(xpw, ypw, 1), new THREE.MeshBasicMaterial({
+            // map: idletexture
+            color: 0xffff00,
+            side:THREE.DoubleSide
+        }));
+        npc.renderOrder = 1;
+        npc.position.x = xp1;
+        npc.position.z = yp1;
+        scene.add(npc);  
+
+
+        // platform p2
+        var npcShape = new p2.Circle(xpw,ypw);
+        var npcBody = new p2.Body({position:[xp1,yp1], mass: 0});
+            npcBody.name = "npc"+i;
+            npcBody.data = npc;
+            npcBody.addShape(npcShape);
+            world.addBody(npcBody);
+
+            platforms.push(npcBody);
+
+}
+}
+
+
+
+
+// goal / kick off
+function scoregoal() {
+setTimeout(function() {
+for (var i = 0; i < world.bodies.length; i++) 
+    { 
+        if( world.bodies[i].name == "football")
+            {
+        addGoal();
+        world.bodies[i].data.position.set(0,0,0);
+        world.bodies[i].position[0] = 0;
+        world.bodies[i].position[1] = 0;
+            }    
+}
+}, 900);
+
+
+}
+
+
+
+
+// addGoal
+var addGoal = (function() {
+return function(argument) {
+if (!goalswitch) {
+    // do once
+    goals++;
+    // document.getElementById('goalnum').innerHTML = goals ;
+    goalswitch = true;
+     
+        setTimeout(function() {
+        // reset switch
+        goalswitch = false;
+        }, 900);
+     
+} // if
+};
+})();
+
+
+// double tap
+var mylatesttap;
+function doubletap() {
+   var now = new Date().getTime();
+   var timesince = now - mylatesttap;
+   if((timesince < 200) && (timesince > 0)){
+    // double tap   
+    console.log('double tap')
+    // kickvar = 'dbl';
+   }else{
+    // single tap
+    console.log('tap')
+    // kickvar = 'tap'
+   }
+
+   mylatesttap = new Date().getTime();
+
+}
+
+
+
+///// p2 PHYSICS loop
+function initP2() {
+world.on('postStep', function(){
+  for (var i = 0; i < world.bodies.length; i++) 
+  { 
+      if(world.bodies[i].name == "npc0" || world.bodies[i].name == "crsr" || world.bodies[i].name == "football" )
+            {
+
+  // postion for all objects                
+  world.bodies[i].data.position.set(world.bodies[i].position[0],world.bodies[i].position[1],0);
+
+// move to cursor
+        if (world.bodies[i].name == "crsr") {
+
+// position 3D cursor plane
+        world.bodies[i].data.position.x += (cursor.position.x - world.bodies[i].data.position.x)*0.2;
+        world.bodies[i].data.position.y += (cursor.position.y - world.bodies[i].data.position.y)*0.2;
+// position p2
+        world.bodies[i].position[0] = world.bodies[i].data.position.x;
+        world.bodies[i].position[1] = world.bodies[i].data.position.y;
+
+        }
+
+// rotate of ball
+    if (world.bodies[i].name == "football") {
+      // lerp camera pos to follow ball
+      camera.position.x += (world.bodies[i].data.position.x - camera.position.x)*0.2;
+      camera.position.y += (world.bodies[i].data.position.y - camera.position.y)*0.2;
+      // rotation
+      x3dball.rotation.set(-world.bodies[i].data.position.y, world.bodies[i].data.position.x,0);
+      // lookat ball
+      camera.lookAt(world.bodies[i].data.position.x, world.bodies[i].data.position.y, world.bodies[i].data.position.z)
+      }
+
+// goalie    
+    if(world.bodies[i].name == "npc0"){
+      world.bodies[i].data.position.x += (xball.position.x - world.bodies[i].data.position.x)*0.2;
+      world.bodies[i].position[0] += (xball.position.x - world.bodies[i].position[0])*0.2;
+
+    }
+
+}//if
+  }; // for  
+        });
+} // init p2
+
+// update score
+function updateCanvas() {
+    scoretexture.needsUpdate = true;
+    ptx.clearRect(0, 0, scorecnv.width, scorecnv.height);
+
+    ptx.fillStyle = 'white';
+    ptx.textAlign = "center";
+  
+    if (goalswitch) {
+        ptx.font = '20pt uni0553-webfont';
+        ptx.fillText('GOAL', scorecnv.width/2, scorecnv.height/2.5); 
+    } else {
+        ptx.font = '30pt uni0553-webfont';
+        ptx.fillText(goals, scorecnv.width/2, scorecnv.height/2.5); 
+    }
+
+
+}
+
+
+
+// loop
+var animate = function () {
+if (xball.position.y< -7 ) {xball.position.y = 0; scoregoal();}
+// if (true) {}
+updateCanvas();
+world.step(1/60);        
+requestAnimationFrame( animate );
+renderer.render( scene, camera );
+};
+
+
+// START <<<<<<<<<<<<<<<<<<<<<<<<
+var world = new p2.World({
+  gravity : [0,0]
+});
+// addBackground();
+addbounds();
+initPhysics();
+initP2();
+// console.log(platforms)
+animate();
+    
+</script>
+</body>
+</html>
